@@ -39,7 +39,10 @@ export default function QRGeneratorScreen({ navigation }: Props) {
     const count = parseInt(quantity, 10);
 
     if (isNaN(count) || count <= 0) {
-      Alert.alert("Invalid Item", "Please enter a valid number of QR codes.");
+      Alert.alert(
+        "Invalid Quantity",
+        "Please enter a valid number of QR codes.",
+      );
       return;
     }
     if (count > 20) {
