@@ -1,23 +1,34 @@
-import React, { useState } from "react";
+// React
+import React, { useRef, useState } from "react";
+
+// React Native
 import {
-  View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  ActivityIndicator,
+  View,
 } from "react-native";
-import Flaticon from "../components/Flaticon";
-import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth } from "../config/firebase";
+import { Feather } from "@expo/vector-icons";
+// Firebase
+import { FirebaseError } from "firebase/app";
 import { signInWithEmailAndPassword } from "firebase/auth";
+// Components
+import ErrorText from "../components/ErrorText";
+import Flaticon from "../components/Flaticon";
+// Config
+import { auth } from "../config/firebase";
+// Navigation
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
-import ErrorText from "../components/ErrorText";
+//Utils
+import { isValidEmail, isRequired } from "../utils/validators";
+import { getFirebaseLoginError } from "../utils/firebaseErrors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -29,6 +40,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [generalError, setGeneralError] = useState("");
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     setEmailError("");
@@ -36,20 +48,19 @@ export default function LoginScreen({ navigation }: Props) {
     setGeneralError("");
 
     const cleanEmail = email.trim();
-    const cleanPassword = password;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanPassword = password.trim();
 
     let hasError = false;
 
-    if (!cleanEmail) {
+    if (!isRequired(cleanEmail)) {
       setEmailError("Email is required");
       hasError = true;
-    } else if (!emailRegex.test(cleanEmail)) {
+    } else if (!isValidEmail(cleanEmail)) {
       setEmailError("Please enter a valid email address");
       hasError = true;
     }
 
-    if (!cleanPassword) {
+    if (!isRequired(cleanPassword)) {
       setPasswordError("Password is required");
       hasError = true;
     }
@@ -59,31 +70,29 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-      setLoading(false);
-      navigation.replace("Dashboard");
-    } catch (error: any) {
-      setLoading(false);
 
-      switch (error.code) {
-        case "auth/user-not-found":
-        case "auth/wrong-password":
-        case "auth/invalid-credential":
-          setGeneralError("Incorrect email or password. Please try again.");
-          break;
-        case "auth/invalid-email":
-          setEmailError("The email format is invalid.");
-          break;
-        case "auth/too-many-requests":
-          setGeneralError(
-            "Too many failed login attempts. Please try again later.",
-          );
-          break;
-        default:
-          setGeneralError(
-            "Unable to sign in right now. Please check your internet connection.",
-          );
-          break;
+      navigation.replace("Dashboard");
+    } catch (error: unknown) {
+      if (!(error instanceof FirebaseError)) {
+        setGeneralError("Something went wrong.");
+        return;
       }
+
+      const firebaseError = getFirebaseLoginError(error.code);
+
+      if (firebaseError.emailError) {
+        setEmailError(firebaseError.emailError);
+      }
+
+      if (firebaseError.passwordError) {
+        setPasswordError(firebaseError.passwordError);
+      }
+
+      if (firebaseError.generalError) {
+        setGeneralError(firebaseError.generalError);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,8 +100,7 @@ export default function LoginScreen({ navigation }: Props) {
     setEmail(text);
 
     const cleanEmail = text.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (emailError && cleanEmail && emailRegex.test(cleanEmail)) {
+    if (emailError && cleanEmail && isValidEmail(cleanEmail)) {
       setEmailError("");
     }
 
@@ -140,6 +148,8 @@ export default function LoginScreen({ navigation }: Props) {
               autoCorrect={false}
               editable={!loading}
               returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
               textContentType="emailAddress"
               autoComplete="email"
             />
@@ -155,6 +165,7 @@ export default function LoginScreen({ navigation }: Props) {
               <Flaticon name="key" size={20} />
             </View>
             <TextInput
+              ref={passwordRef}
               style={styles.inputField}
               placeholder="Password"
               placeholderTextColor="#8A8A8F"
@@ -171,6 +182,10 @@ export default function LoginScreen({ navigation }: Props) {
             />
             {/* Password visibility toggle */}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={
+                secureText ? "Show password" : "Hide password"
+              }
               onPress={() => setSecureText(!secureText)}
               style={styles.eyeIconContainer}
               disabled={loading}
@@ -194,7 +209,9 @@ export default function LoginScreen({ navigation }: Props) {
 
           {/* Log In Button */}
           <TouchableOpacity
-            style={[styles.loginButton, loading && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Log in"
+            style={[styles.loginButton, loading && styles.buttonDisabled]}
             onPress={handleLogin}
             activeOpacity={0.8}
             disabled={loading}
@@ -202,7 +219,7 @@ export default function LoginScreen({ navigation }: Props) {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.loginButtonText}>Get Started</Text>
+              <Text style={styles.loginButtonText}>Sign In</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -298,6 +315,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   loginButtonText: {
     color: "#FFFFFF",
