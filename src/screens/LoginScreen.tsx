@@ -7,7 +7,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
   ActivityIndicator,
 } from "react-native";
@@ -18,6 +17,7 @@ import { auth } from "../config/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import ErrorText from "../components/ErrorText";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -26,29 +26,39 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [generalError, setGeneralError] = useState("");
 
   const handleLogin = async () => {
+    setEmailError("");
+    setPasswordError("");
+    setGeneralError("");
+
     const cleanEmail = email.trim();
-    if (!cleanEmail || !password) {
-      Alert.alert(
-        "Missing Fields",
-        "Please enter both your email and password.",
-      );
-      return;
-    }
-
+    const cleanPassword = password;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
-      return;
+
+    let hasError = false;
+
+    if (!cleanEmail) {
+      setEmailError("Email is required");
+      hasError = true;
+    } else if (!emailRegex.test(cleanEmail)) {
+      setEmailError("Please enter a valid email address");
+      hasError = true;
     }
 
+    if (!cleanPassword) {
+      setPasswordError("Password is required");
+      hasError = true;
+    }
+
+    if (hasError) return;
     setLoading(true);
 
     try {
-      // 2. Authenticate against Firebase
-      await signInWithEmailAndPassword(auth, cleanEmail, password);
-
+      await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       setLoading(false);
       navigation.replace("Dashboard");
     } catch (error: any) {
@@ -58,27 +68,49 @@ export default function LoginScreen({ navigation }: Props) {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          Alert.alert(
-            "Login Failed",
-            "Invalid email or password. Please check your credentials.",
-          );
+          setGeneralError("Incorrect email or password. Please try again.");
           break;
         case "auth/invalid-email":
-          Alert.alert("Invalid Email", "The email format is invalid.");
+          setEmailError("The email format is invalid.");
           break;
         case "auth/too-many-requests":
-          Alert.alert(
-            "Account Temporarily Locked",
+          setGeneralError(
             "Too many failed login attempts. Please try again later.",
           );
           break;
         default:
-          Alert.alert(
-            "Authentication Error",
+          setGeneralError(
             "Unable to sign in right now. Please check your internet connection.",
           );
           break;
       }
+    }
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+
+    const cleanEmail = text.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (emailError && cleanEmail && emailRegex.test(cleanEmail)) {
+      setEmailError("");
+    }
+
+    // Always clear general error when user types
+    if (generalError) {
+      setGeneralError("");
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+
+    if (passwordError && text.trim()) {
+      setPasswordError("");
+    }
+
+    if (generalError) {
+      setGeneralError("");
     }
   };
 
@@ -93,7 +125,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.loginTitle}>Log in</Text>
 
           {/* Email Address Input */}
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, emailError && styles.inputError]}>
             <View style={styles.iconContainer}>
               <Feather name="at-sign" size={20} color="#8A8A8F" />
             </View>
@@ -102,17 +134,23 @@ export default function LoginScreen({ navigation }: Props) {
               placeholder="E-mail address"
               placeholderTextColor="#8A8A8F"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
               editable={!loading}
               returnKeyType="next"
+              textContentType="emailAddress"
+              autoComplete="email"
             />
           </View>
 
+          <ErrorText message={emailError} />
+
           {/* Password Input */}
-          <View style={styles.inputWrapper}>
+          <View
+            style={[styles.inputWrapper, passwordError && styles.inputError]}
+          >
             <View style={styles.iconContainer}>
               <Flaticon name="key" size={20} />
             </View>
@@ -121,13 +159,15 @@ export default function LoginScreen({ navigation }: Props) {
               placeholder="Password"
               placeholderTextColor="#8A8A8F"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               secureTextEntry={secureText}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!loading}
               returnKeyType="go"
               onSubmitEditing={handleLogin}
+              textContentType="password"
+              autoComplete="current-password"
             />
             {/* Password visibility toggle */}
             <TouchableOpacity
@@ -142,6 +182,15 @@ export default function LoginScreen({ navigation }: Props) {
               />
             </TouchableOpacity>
           </View>
+
+          <ErrorText message={passwordError} />
+
+          {generalError ? (
+            <View style={styles.generalErrorContainer}>
+              <Flaticon name="warning" size={16} color="#FF3B30" noFade />
+              <Text style={styles.generalErrorText}>{generalError}</Text>
+            </View>
+          ) : null}
 
           {/* Log In Button */}
           <TouchableOpacity
@@ -202,6 +251,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 15,
   },
+  inputError: {
+    borderColor: "#FF3B30",
+    borderWidth: 1.5,
+  },
   iconContainer: {
     width: 32,
     justifyContent: "center",
@@ -217,6 +270,21 @@ const styles = StyleSheet.create({
   },
   eyeIconContainer: {
     paddingHorizontal: 5,
+  },
+  generalErrorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+    marginTop: -14,
+  },
+  generalErrorText: {
+    color: "#FF3B30",
+    fontSize: 12,
+    marginLeft: 8,
+    fontFamily: "Helvetica-three",
+    flex: 1,
   },
   loginButton: {
     backgroundColor: "#6C7075",
@@ -236,20 +304,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "500",
     fontFamily: "Helvetica-three",
-  },
-  signupContainer: {
-    alignItems: "center",
-    marginTop: 25,
-  },
-  signupText: {
-    color: "#8E8E93",
-    fontSize: 14,
-    fontFamily: "Helvetica-three",
-  },
-  signupLink: {
-    color: "#55555C",
-    fontWeight: "400",
-    fontFamily: "Helvetica-two",
   },
   footer: {
     alignItems: "center",

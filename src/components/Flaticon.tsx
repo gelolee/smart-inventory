@@ -16,13 +16,15 @@ const ICON_MAP: Record<string, any> = {
   check: require("../../assets/icons/check.png"),
   exit: require("../../assets/icons/logout.png"),
   location: require("../../assets/icons/location.png"),
+  warning: require("../../assets/icons/warning.png"),
 };
 
 interface FlaticonProps {
-  name: keyof typeof ICON_MAP; // TypeScript will auto-suggest all keys in ICON_MAP!
+  name: keyof typeof ICON_MAP;
   size?: number;
   color?: string;
   style?: StyleProp<ImageStyle>;
+  noFade?: boolean;
 }
 
 export default function Flaticon({
@@ -30,6 +32,7 @@ export default function Flaticon({
   size = 24,
   color,
   style,
+  noFade = false,
 }: FlaticonProps) {
   const source = ICON_MAP[name];
 
@@ -41,9 +44,10 @@ export default function Flaticon({
   return (
     <Image
       source={source}
+      fadeDuration={noFade ? 0 : 300}
       style={[
         { width: size, height: size, resizeMode: "contain" },
-        color ? { tintColor: color } : {}, // 👈 This maps your color prop to tintColor!
+        color ? { tintColor: color } : {},
         style,
       ]}
     />
