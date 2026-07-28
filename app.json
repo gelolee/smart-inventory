@@ -24,8 +24,6 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.acmarriott.smartinventory"
@@ -36,7 +34,15 @@
     "plugins": [
       "expo-sharing",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
       "@react-native-community/datetimepicker",
       "expo-status-bar",
       [
@@ -44,7 +50,8 @@
         {
           "cameraPermission": "This app needs camera access to scan QR codes for inventory tracking."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {

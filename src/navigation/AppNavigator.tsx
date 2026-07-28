@@ -10,12 +10,18 @@ import QRScannerScreen from "../screens/QRScannerScreen";
 import ProductDetails from "../screens/ProductDetailsScreen";
 import ProductDetailsPreview from "../screens/ProductDetailsPreview";
 import InventoryScreen from "../screens/CatalogScreen";
+import IntroScreen from "../screens/IntroScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Login">
+    <Stack.Navigator initialRouteName="Intro">
+      <Stack.Screen
+        name="Intro"
+        component={IntroScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="Login"
         component={LoginScreen}
