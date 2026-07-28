@@ -16,10 +16,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 import Flaticon from "../components/Flaticon";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddQr">;
 
@@ -33,6 +36,115 @@ export default function QRGeneratorScreen({ navigation }: Props) {
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [showQRGrid, setShowQRGrid] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (isExportingPdf || generatedCodes.length === 0) return;
+    setIsExportingPdf(true);
+
+    try {
+      // Build the QR grid as HTML — using a public QR image service so
+      // expo-print can render actual scannable images inside the PDF.
+      const qrCardsHtml = generatedCodes
+        .map(
+          (code) => `
+          <div class="qr-card">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(code)}" />
+            <div class="qr-label">${code}</div>
+          </div>
+        `,
+        )
+        .join("");
+
+      const html = `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 20px; }
+            h1 { font-size: 18px; color: #3A3F47; margin-bottom: 20px; text-align: center; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-column-gap: 16px; grid-row-gap: 16px; }
+            .qr-card { border: 1px solid #E5E5EA; border-radius: 12px; padding: 16px; text-align: center; box-sizing:border-box;}
+            .qr-card img { width: 140px; height: 140px; display:block; margin:0 auto; }
+            .qr-label { margin-top: 8px; font-size: 13px; font-weight: 700; color: #3A3F47; }
+          </style>
+        </head>
+        <body>
+          <h1>Generated QR Codes (${generatedCodes.length})</h1>
+          <div class="grid">${qrCardsHtml}</div>
+        </body>
+      </html>
+    `;
+
+      const { uri, base64 } = await Print.printToFileAsync({
+        html,
+        base64: true,
+      });
+
+      const fileName = `qr_codes_${Date.now()}.pdf`;
+
+      Alert.alert(
+        "PDF Ready",
+        "Your QR code sheet is ready. What would you like to do?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Share",
+            onPress: async () => {
+              const canShare = await Sharing.isAvailableAsync();
+              if (canShare) {
+                await Sharing.shareAsync(uri, {
+                  mimeType: "application/pdf",
+                  dialogTitle: "Share QR Codes",
+                  UTI: "com.adobe.pdf",
+                });
+              }
+            },
+          },
+          {
+            text: "Download",
+            onPress: async () => {
+              if (Platform.OS === "android") {
+                const permissions =
+                  await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+                if (!permissions.granted) return;
+
+                const savedUri =
+                  await FileSystem.StorageAccessFramework.createFileAsync(
+                    permissions.directoryUri,
+                    fileName,
+                    "application/pdf",
+                  );
+                await FileSystem.writeAsStringAsync(
+                  savedUri,
+                  base64 as string,
+                  {
+                    encoding: FileSystem.EncodingType.Base64,
+                  },
+                );
+
+                Alert.alert(
+                  "Downloaded",
+                  "The PDF has been saved to your chosen folder.",
+                );
+              } else {
+                await Sharing.shareAsync(uri, {
+                  mimeType: "application/pdf",
+                  dialogTitle: "Save QR Codes",
+                  UTI: "com.adobe.pdf",
+                });
+              }
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      console.error("PDF export failed:", error);
+      Alert.alert("Export Failed", "Something went wrong generating the PDF.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (isGenerating) return;
@@ -58,23 +170,38 @@ export default function QRGeneratorScreen({ navigation }: Props) {
 
     try {
       const productsRef = collection(db as any, "products");
+      const generatedCodesRef = collection(db as any, "generatedCodes");
       const codes: string[] = [];
 
-      // Generate candidates one at a time, checking each against Firestore
-      // so nothing printed today can collide with anything already issued.
       while (codes.length < count) {
         const candidate = generateUniqueCode();
         if (codes.includes(candidate)) continue; // avoid dupes within this same batch
 
-        const dupCheck = query(
+        const productCheck = query(
           productsRef,
           where("assetCode", "==", candidate),
         );
-        const snapshot = await getDocs(dupCheck);
-        if (snapshot.empty) {
+        const generatedCheck = query(
+          generatedCodesRef,
+          where("code", "==", candidate),
+        );
+        const [productSnap, generatedSnap] = await Promise.all([
+          getDocs(productCheck),
+          getDocs(generatedCheck),
+        ]);
+        if (productSnap.empty && generatedSnap.empty) {
           codes.push(candidate);
         }
       }
+
+      await Promise.all(
+        codes.map((code) =>
+          addDoc(generatedCodesRef, {
+            code,
+            generatedAt: new Date().toISOString(),
+          }),
+        ),
+      );
 
       setGeneratedCodes(codes);
       setShowQRGrid(true);
@@ -153,8 +280,19 @@ export default function QRGeneratorScreen({ navigation }: Props) {
               <Text style={styles.secondaryButtonText}>Back</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryActionButton}>
-              <Text style={styles.primaryActionButtonText}>Print PDF</Text>
+            <TouchableOpacity
+              style={[
+                styles.primaryActionButton,
+                isExportingPdf && { opacity: 0.6 },
+              ]}
+              onPress={handleDownloadPdf}
+              disabled={isExportingPdf}
+            >
+              {isExportingPdf ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.primaryActionButtonText}>Download PDF</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -184,12 +322,6 @@ export default function QRGeneratorScreen({ navigation }: Props) {
                       const numericValue = text.replace(/[^0-9]/g, "");
                       setQuantity(numericValue);
                     }}
-                  />
-                  <Flaticon
-                    name="dropdown"
-                    size={16}
-                    color="#8A8A8F"
-                    style={styles.dropdownIcon}
                   />
                 </View>
               </View>
