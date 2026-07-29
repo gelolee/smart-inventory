@@ -15,18 +15,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Flaticon from "../components/Flaticon";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { db } from "../config/firebase";
 import {
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+  ProductService,
+  type CreateProductDto,
+  type UpdateProductDto,
+} from "../services/ProductService";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import { formatDateMMDDYYYY } from "../utils/date";
 
 const CATEGORIES = ["Supplies", "Equipment", "Furniture"];
 const UNITS = ["Piece", "Box", "Pack"];
@@ -64,10 +60,7 @@ export default function AddProductScreen({ route, navigation }: Props) {
   const handleValueChange = (event: any, selectedDate?: Date) => {
     if (selectedDate) {
       setDate(selectedDate);
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, "0");
-      const dd = String(selectedDate.getDate()).padStart(2, "0");
-      const yyyy = selectedDate.getFullYear();
-      setPurchaseDate(`${mm}/${dd}/${yyyy}`);
+      setPurchaseDate(formatDateMMDDYYYY(selectedDate));
     }
     if (Platform.OS === "android") {
       setShowDatePicker(false);
@@ -113,18 +106,13 @@ export default function AddProductScreen({ route, navigation }: Props) {
 
     setIsSubmitting(true);
     try {
-      const productsRef = collection(db as any, "products");
       if (isEditMode) {
         if (cleanAssetCode !== editProduct.assetCode) {
-          const dupQuery = query(
-            productsRef,
-            where("assetCode", "==", cleanAssetCode),
+          const assetExists = await ProductService.isAssetCodeTaken(
+            cleanAssetCode,
+            editProduct.id,
           );
-          const dupSnapshot = await getDocs(dupQuery);
-          const collides = dupSnapshot.docs.some(
-            (d) => d.id !== editProduct.id,
-          );
-          if (collides) {
+          if (assetExists) {
             Alert.alert(
               "Duplicate Asset Code",
               "Another product already uses this asset code.",
@@ -132,8 +120,8 @@ export default function AddProductScreen({ route, navigation }: Props) {
             return;
           }
         }
-        const productRef = doc(db as any, "products", editProduct.id);
-        await updateDoc(productRef, {
+        const updatedProduct: UpdateProductDto = {
+          id: editProduct.id,
           itemName: cleanItemName,
           assetCode: cleanAssetCode,
           brand: brand.trim() || "Generic",
@@ -141,8 +129,11 @@ export default function AddProductScreen({ route, navigation }: Props) {
           unit,
           purchaseDate,
           location: cleanLocation,
-        });
-        const updatedProduct = {
+        };
+
+        await ProductService.updateProduct(updatedProduct);
+
+        const previewProduct = {
           id: editProduct.id,
           itemName: cleanItemName,
           assetCode: cleanAssetCode,
@@ -168,7 +159,7 @@ export default function AddProductScreen({ route, navigation }: Props) {
                     { name: "ProductDetails" },
                     {
                       name: "ProductDetailsPreview",
-                      params: { product: updatedProduct },
+                      params: { product: previewProduct },
                     },
                   ],
                 }),
@@ -184,30 +175,25 @@ export default function AddProductScreen({ route, navigation }: Props) {
         );
         return;
       }
-      const duplicateQuery = query(
-        productsRef,
-        where("qrCode", "==", scannedCode),
-      );
-      const querySnapshot = await getDocs(duplicateQuery);
-      if (!querySnapshot.empty) {
+      const qrExists = await ProductService.isQRCodeTaken(scannedCode);
+      if (qrExists) {
         Alert.alert(
           "Duplicate Identifier",
           "This QR code has already been assigned to a product in the inventory.",
         );
         return;
       }
-      const newProduct = {
+      const newProduct: CreateProductDto = {
         itemName: cleanItemName,
         assetCode: cleanAssetCode,
         qrCode: scannedCode,
         brand: brand.trim() || "Generic",
-        category: category,
-        unit: unit,
-        purchaseDate: purchaseDate,
+        category,
+        unit,
+        purchaseDate,
         location: cleanLocation,
-        createdAt: new Date().toISOString(),
       };
-      const docRef = await addDoc(productsRef, newProduct);
+      const docRef = await ProductService.saveProduct(newProduct);
       console.log("Document successfully indexed: ", docRef.id);
       Alert.alert(
         "Asset Saved",

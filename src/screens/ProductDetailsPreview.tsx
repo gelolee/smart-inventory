@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import QRCode from "react-native-qrcode-svg";
 import Flaticon from "../components/Flaticon";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 
@@ -22,8 +22,7 @@ type Props = NativeStackScreenProps<
 >;
 
 export default function ProductDetailsPreview({ route, navigation }: Props) {
-  const { role } = useAuth();
-  const isAdmin = role === "admin";
+  const { isAdmin } = useAuth();
 
   const product = route.params?.product || {};
 
@@ -37,10 +36,9 @@ export default function ProductDetailsPreview({ route, navigation }: Props) {
     purchaseDate = "N/A",
     location = "N/A",
     qrCode = "",
-    qrValue = "",
   } = product;
 
-  const activeQrPayload = qrCode || qrValue || assetCode;
+  const activeQrPayload = qrCode || assetCode;
 
   const handleShareDetails = async () => {
     try {
@@ -64,7 +62,6 @@ export default function ProductDetailsPreview({ route, navigation }: Props) {
         purchaseDate,
         location,
         qrCode,
-        qrValue,
       },
     });
   };

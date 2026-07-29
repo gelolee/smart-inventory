@@ -17,18 +17,17 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 // Firebase
 import { FirebaseError } from "firebase/app";
-import { signInWithEmailAndPassword } from "firebase/auth";
 // Components
 import ErrorText from "../components/ErrorText";
 import Flaticon from "../components/Flaticon";
-// Config
-import { auth } from "../config/firebase";
 // Navigation
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 //Utils
 import { isValidEmail, isRequired } from "../utils/validators";
 import { getFirebaseLoginError } from "../utils/firebaseErrors";
+//Services
+import { AuthService } from "../services/AuthService";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -69,7 +68,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+      await AuthService.login(cleanEmail, cleanPassword);
 
       navigation.replace("Dashboard");
     } catch (error: unknown) {

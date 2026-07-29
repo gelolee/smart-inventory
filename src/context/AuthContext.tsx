@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase";
+import { auth } from "../config/firebase";
+import { UserService } from "../services/UserService";
 
 type Role = "admin" | "staff" | null;
 
@@ -11,7 +11,7 @@ interface AuthContextValue {
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextValue>({
+export const AuthContext = createContext<AuthContextValue>({
   user: null,
   role: null,
   loading: true,
@@ -29,13 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser) {
         try {
-          const userDocRef = doc(db as any, "users", firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            setRole(userDoc.data().role as Role);
-          } else {
-            setRole(null);
-          }
+          const role = await UserService.getUserRole(firebaseUser.uid);
+          setRole(role);
         } catch (error) {
           console.error("Failed to fetch user role:", error);
           setRole(null);
@@ -55,8 +50,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
 }

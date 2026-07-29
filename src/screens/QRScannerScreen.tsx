@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,42 +6,36 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { db } from "../config/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
-
-type Props = NativeStackScreenProps<RootStackParamList, "QRScannerScreen">;
+import { useAuth } from "../hooks/useAuth";
+import { useScanner } from "../hooks/useScanner";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const TARGET_SIZE = 240;
 
-export default function ScannerScreen({ navigation }: Props) {
-  const { role } = useAuth();
-  const isAdmin = role === "admin";
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
-  const [animationValue] = useState(new Animated.Value(0));
-  const [guideText, setGuideText] = useState(
-    "Fit the QR code inside the frame",
-  );
-  const [isAligned, setIsAligned] = useState(false);
-  const [isCheckingDB, setIsCheckingDB] = useState(false);
+type Props = NativeStackScreenProps<RootStackParamList, "QRScannerScreen">;
 
-  const seenDataFrames = useRef<{ [key: string]: number }>({});
-  const isMountedRef = useRef(true);
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+export default function ScannerScreen({ navigation }: Props) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [animationValue] = useState(new Animated.Value(0));
+  const { isAdmin } = useAuth();
+
+  const { scanned, guideText, isAligned, isCheckingDB, handleBarcodeScanned } =
+    useScanner({
+      screenWidth: SCREEN_WIDTH,
+      screenHeight: SCREEN_HEIGHT,
+      isAdmin,
+      onNavigateToRegister: (scannedCode) =>
+        navigation.replace("RegisterProduct", { scannedCode }),
+      onNavigateToDetails: (product) =>
+        navigation.replace("ProductDetailsPreview", { product }),
+    });
 
   useEffect(() => {
     const loopAnimation = Animated.loop(
@@ -93,142 +87,11 @@ export default function ScannerScreen({ navigation }: Props) {
     );
   }
 
-  // Helper utility to cleanly reset scanner states
-  const resetScannerState = () => {
-    setScanned(false);
-    setIsAligned(false);
-    setGuideText("Fit the QR code inside the frame");
-    setIsCheckingDB(false);
-    seenDataFrames.current = {};
-  };
-
-  const handleBarcodeScanned = async (event: any) => {
-    if (scanned) return;
-
-    const { bounds, data } = event;
-    if (!bounds) return;
-
-    const { origin, size } = bounds;
-    if (!origin || !size) return;
-
-    const rawQrPayload = data.trim();
-
-    const now = Date.now();
-
-    // 1. MULTI-QR DETECTION LOGIC
-    seenDataFrames.current[data] = now;
-
-    Object.keys(seenDataFrames.current).forEach((key) => {
-      if (now - seenDataFrames.current[key] > 400) {
-        delete seenDataFrames.current[key];
-      }
-    });
-
-    const uniqueQRCodesCount = Object.keys(seenDataFrames.current).length;
-    if (uniqueQRCodesCount > 1) {
-      setGuideText("Multiple QRs detected! Isolate only 1");
-      setIsAligned(false);
-      return;
-    }
-
-    // 2. DISTANCE CHECK
-    const qrWidth = size.width;
-    const qrHeight = size.height;
-    const minQrSize = 110;
-
-    if (qrWidth < minQrSize || qrHeight < minQrSize) {
-      setGuideText("Move closer to fill the box");
-      setIsAligned(false);
-      return;
-    }
-
-    // 3. BOUNDS & ALIGNMENT CHECK
-    const targetLeft = (SCREEN_WIDTH - TARGET_SIZE) / 2;
-    const targetTop = (SCREEN_HEIGHT - TARGET_SIZE) / 2;
-    const targetRight = targetLeft + TARGET_SIZE;
-    const targetBottom = targetTop + TARGET_SIZE;
-
-    const qrLeft = origin.x;
-    const qrTop = origin.y;
-    const qrRight = qrLeft + qrWidth;
-    const qrBottom = qrTop + qrHeight;
-
-    const insideBox =
-      qrLeft >= targetLeft - 30 &&
-      qrRight <= targetRight + 30 &&
-      qrTop >= targetTop - 30 &&
-      qrBottom <= targetBottom + 30;
-
-    if (!insideBox) {
-      setGuideText("Center the QR code in the box");
-      setIsAligned(false);
-      return;
-    }
-
-    // Success: Lock scanner state and hit the DB
-    setIsAligned(true);
-    setGuideText("Target Lock! Checking Database...");
-    setScanned(true);
-    setIsCheckingDB(true);
-
-    // Only accept QR codes matching our generated asset code format (e.g. AST-1234)
-    const ASSET_CODE_PATTERN = /^AST-\d{4}$/;
-    if (!ASSET_CODE_PATTERN.test(rawQrPayload)) {
-      setIsCheckingDB(false);
-      Alert.alert(
-        "Invalid QR Code",
-        "This QR code was not generated by this app and cannot be used here.",
-        [{ text: "Scan Another", onPress: resetScannerState }],
-      );
-      return;
-    }
-
-    try {
-      const productsRef = collection(db as any, "products");
-      const q = query(productsRef, where("qrCode", "==", rawQrPayload));
-      const querySnapshot = await getDocs(q);
-
-      setTimeout(() => {
-        if (!isMountedRef.current) return;
-        setIsCheckingDB(false);
-
-        if (!querySnapshot.empty) {
-          const matchedDoc = querySnapshot.docs[0];
-          const product = {
-            id: matchedDoc.id,
-            ...matchedDoc.data(),
-          } as RootStackParamList["ProductDetailsPreview"]["product"];
-          navigation.navigate("ProductDetailsPreview", { product });
-          resetScannerState();
-        } else {
-          if (!isAdmin) {
-            Alert.alert(
-              "Access Restricted",
-              "This QR code isn't registered yet. Only admins can add new products.",
-              [{ text: "OK", onPress: resetScannerState }],
-            );
-            return;
-          }
-          navigation.navigate("RegisterProduct", { scannedCode: rawQrPayload });
-          resetScannerState();
-        }
-      }, 800);
-    } catch (error) {
-      console.error("Scanning verification failed:", error);
-      if (!isMountedRef.current) return;
-      setIsCheckingDB(false);
-      Alert.alert("Sync Error", "Could not check cloud database.");
-      resetScannerState();
-    }
-  };
-
   return (
     <View style={styles.container}>
       <CameraView
         style={StyleSheet.absoluteFill}
-        barcodeScannerSettings={{
-          barcodeTypes: ["qr"],
-        }}
+        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
@@ -236,7 +99,7 @@ export default function ScannerScreen({ navigation }: Props) {
         <View style={styles.maskRow}>
           <SafeAreaView style={styles.header}>
             <TouchableOpacity
-              onPress={() => navigation.popToTop()}
+              onPress={() => navigation.navigate("Dashboard")}
               style={styles.backButton}
             >
               <Feather name="x" size={26} color="#FFFFFF" />
@@ -248,7 +111,6 @@ export default function ScannerScreen({ navigation }: Props) {
 
         <View style={styles.centerRow}>
           <View style={styles.sideMask} />
-
           <View style={styles.targetSquare}>
             <Animated.View
               style={[
@@ -260,7 +122,6 @@ export default function ScannerScreen({ navigation }: Props) {
                 },
               ]}
             />
-
             <View
               style={[
                 styles.corner,
@@ -290,7 +151,6 @@ export default function ScannerScreen({ navigation }: Props) {
               ]}
             />
           </View>
-
           <View style={styles.sideMask} />
         </View>
 

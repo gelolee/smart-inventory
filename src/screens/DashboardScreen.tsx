@@ -10,24 +10,16 @@ import {
 import Flaticon from "../components/Flaticon";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ActivityIndicator } from "react-native";
-import { signOut } from "firebase/auth";
-import { auth } from "../config/firebase";
-import { useAuth } from "../context/AuthContext";
+import { AuthService } from "../services/AuthService";
+import { useAuth } from "../hooks/useAuth";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
+import { getTimeBasedGreeting } from "../utils/date";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Dashboard">;
 
 export default function DashboardScreen({ navigation }: Props) {
-  const { role, loading } = useAuth();
-  const isAdmin = role === "admin";
-
-  function getTimeBasedGreeting(): string {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
-    return "Good Evening";
-  }
+  const { isAdmin, loading } = useAuth();
 
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -36,7 +28,7 @@ export default function DashboardScreen({ navigation }: Props) {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
-          await signOut(auth);
+          await AuthService.logout();
           navigation.replace("Login");
         },
       },

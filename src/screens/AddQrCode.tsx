@@ -23,17 +23,17 @@ import type { RootStackParamList } from "../navigation/types";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
+import { SvgXml } from "react-native-svg";
+import { generateAssetCode } from "../utils/qr";
 
 type Props = NativeStackScreenProps<RootStackParamList, "AddQr">;
-
-const generateUniqueCode = () => {
-  const randomPart = Math.floor(1000 + Math.random() * 9000);
-  return `AST-${randomPart}`;
-};
 
 export default function QRGeneratorScreen({ navigation }: Props) {
   const [quantity, setQuantity] = useState("");
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [qrImages, setQrImages] = useState<{ code: string; base64: string }[]>(
+    [],
+  );
   const [showQRGrid, setShowQRGrid] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -45,12 +45,12 @@ export default function QRGeneratorScreen({ navigation }: Props) {
     try {
       // Build the QR grid as HTML — using a public QR image service so
       // expo-print can render actual scannable images inside the PDF.
-      const qrCardsHtml = generatedCodes
+      const qrCardsHtml = qrImages
         .map(
-          (code) => `
+          (qr) => `
           <div class="qr-card">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(code)}" />
-            <div class="qr-label">${code}</div>
+            <img src="data:image/png;base64,${qr.base64}" style="width:140px;height:140px;"/>
+            <div class="qr-label">${qr.code}</div>
           </div>
         `,
         )
@@ -174,7 +174,7 @@ export default function QRGeneratorScreen({ navigation }: Props) {
       const codes: string[] = [];
 
       while (codes.length < count) {
-        const candidate = generateUniqueCode();
+        const candidate = generateAssetCode();
         if (codes.includes(candidate)) continue; // avoid dupes within this same batch
 
         const productCheck = query(
@@ -264,8 +264,20 @@ export default function QRGeneratorScreen({ navigation }: Props) {
                 <QRCode
                   value={item}
                   size={100}
-                  color="#1C1C1E"
-                  backgroundColor="#FFFFFF"
+                  getRef={(ref) => {
+                    ref?.toDataURL((data: string) => {
+                      setQrImages((prev) => {
+                        if (prev.find((x) => x.code === item)) return prev;
+                        return [
+                          ...prev,
+                          {
+                            code: item,
+                            base64: data,
+                          },
+                        ];
+                      });
+                    });
+                  }}
                 />
                 <Text style={styles.qrLabel}>{item}</Text>
               </View>

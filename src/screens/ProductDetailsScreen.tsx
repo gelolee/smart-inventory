@@ -10,27 +10,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
 import Flaticon from "../components/Flaticon";
-import { db } from "../config/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
+import { ProductService } from "../services/ProductService";
+import type { Product } from "../types/Product";
+import { useAuth } from "../hooks/useAuth";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProductDetails">;
-
-export interface ProductItem {
-  id: string;
-  assetCode: string;
-  itemName: string;
-  unit: string;
-  qrCode: string;
-  location?: string;
-  quantity?: number | string;
-  brand?: string;
-  category?: string;
-  purchaseDate?: string;
-  qrValue?: string;
-}
 
 function SkeletonCard() {
   const pulseAnim = React.useRef(new Animated.Value(0.3)).current;
@@ -82,24 +68,15 @@ function SkeletonCard() {
 }
 
 export default function ProductsScreen({ navigation }: Props) {
-  const { loading: authLoading } = useAuth();
-  const [products, setProducts] = useState<ProductItem[]>([]);
+  const { loading: authLoading, user } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !user) return;
 
-    const productsRef = collection(db as any, "products");
-    const q = query(productsRef, orderBy("createdAt", "desc"));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: ProductItem[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as ProductItem[];
-
+    const unsubscribe = ProductService.subscribeToProducts(
+      (list) => {
         setProducts(list);
         setLoading(false);
       },
@@ -110,18 +87,17 @@ export default function ProductsScreen({ navigation }: Props) {
     );
 
     return () => unsubscribe();
-  }, [authLoading]);
+  }, [authLoading, user]);
 
   // ─── CARD COMPONENT MATCHING YOUR DESIGN ───
-  const renderProductCard = ({ item }: { item: ProductItem }) => {
+  const renderProductCard = ({ item }: { item: Product }) => {
     return (
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.7}
         onPress={() =>
           navigation.navigate("ProductDetailsPreview", {
-            product:
-              item as RootStackParamList["ProductDetailsPreview"]["product"],
+            product: item,
           })
         }
       >
