@@ -3,7 +3,7 @@
  * Used to validate that a scanned QR was actually produced by this
  * system, rejecting any unrelated QR code (URLs, barcodes, etc.).
  */
-const ASSET_CODE_PATTERN = /^AST-\d{4}$/;
+const ASSET_CODE_PATTERN = /^ASYA-\d{4}$/;
 
 /**
  * Generates a single candidate asset code in the AST-#### format.
@@ -13,7 +13,7 @@ const ASSET_CODE_PATTERN = /^AST-\d{4}$/;
  */
 export function generateAssetCode(): string {
   const randomPart = Math.floor(1000 + Math.random() * 9000);
-  return `AST-${randomPart}`;
+  return `ASYA-${randomPart}`;
 }
 
 /**

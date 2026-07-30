@@ -11,7 +11,7 @@ export default function IntroScreen({ navigation }: Props) {
   const [hasNavigated, setHasNavigated] = useState(false);
 
   const player = useVideoPlayer(
-    require("../../assets/video/splash.mp4"),
+    require("../../assets/video/splashv2.mp4"),
     (player) => {
       player.play();
     },
