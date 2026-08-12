@@ -49,7 +49,7 @@ export default function QRGeneratorScreen({ navigation }: Props) {
         .map(
           (qr) => `
           <div class="qr-card">
-            <img src="data:image/png;base64,${qr.base64}" style="width:140px;height:140px;"/>
+            <img src="data:image/png;base64,${qr.base64}" style="width:50px;height:50px;"/>
             <div class="qr-label">${qr.code}</div>
           </div>
         `,
@@ -63,10 +63,10 @@ export default function QRGeneratorScreen({ navigation }: Props) {
           <style>
             body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 20px; }
             h1 { font-size: 18px; color: #3A3F47; margin-bottom: 20px; text-align: center; }
-            .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-column-gap: 16px; grid-row-gap: 16px; }
+            .grid { display: grid; grid-template-columns: repeat(6, 1fr); grid-column-gap: 16px; grid-row-gap: 16px; }
             .qr-card { border: 1px solid #E5E5EA; border-radius: 12px; padding: 16px; text-align: center; box-sizing:border-box;}
-            .qr-card img { width: 140px; height: 140px; display:block; margin:0 auto; }
-            .qr-label { margin-top: 8px; font-size: 13px; font-weight: 700; color: #3A3F47; }
+            .qr-card img { width: 50px; height: 50px; display:block; margin:0 auto; }
+            .qr-label { margin-top: 8px; font-size: 8px; font-weight: 700; color: #3A3F47; }
           </style>
         </head>
         <body>
@@ -76,12 +76,17 @@ export default function QRGeneratorScreen({ navigation }: Props) {
       </html>
     `;
 
-      const { uri, base64 } = await Print.printToFileAsync({
+      const pdf = await Print.printToFileAsync({
         html,
         base64: true,
       });
-
+      const uri = pdf.uri;
+      const base64 = pdf.base64;
       const fileName = `qr_codes_${Date.now()}.pdf`;
+      const appPdfUri = FileSystem.documentDirectory + fileName;
+      await FileSystem.writeAsStringAsync(appPdfUri, base64!, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
       Alert.alert(
         "PDF Ready",
@@ -93,7 +98,7 @@ export default function QRGeneratorScreen({ navigation }: Props) {
             onPress: async () => {
               const canShare = await Sharing.isAvailableAsync();
               if (canShare) {
-                await Sharing.shareAsync(uri, {
+                await Sharing.shareAsync(appPdfUri, {
                   mimeType: "application/pdf",
                   dialogTitle: "Share QR Codes",
                   UTI: "com.adobe.pdf",
@@ -128,7 +133,7 @@ export default function QRGeneratorScreen({ navigation }: Props) {
                   "The PDF has been saved to your chosen folder.",
                 );
               } else {
-                await Sharing.shareAsync(uri, {
+                await Sharing.shareAsync(appPdfUri, {
                   mimeType: "application/pdf",
                   dialogTitle: "Save QR Codes",
                   UTI: "com.adobe.pdf",
@@ -157,10 +162,10 @@ export default function QRGeneratorScreen({ navigation }: Props) {
       );
       return;
     }
-    if (count > 20) {
+    if (count > 50) {
       Alert.alert(
         "Limit Exceeded",
-        "You can generate a maximum of 20 QR codes to fit on a single A4 sheet.",
+        "You can generate a maximum of 50 QR codes to fit on a single A4 sheet.",
       );
       return;
     }
@@ -346,7 +351,7 @@ export default function QRGeneratorScreen({ navigation }: Props) {
                   style={styles.infoIcon}
                 />
                 <Text style={styles.infoText}>
-                  Up to 20 QR codes fit on one A4 page.
+                  Up to 50 QR codes fit on one A4 page.
                 </Text>
               </View>
               <View style={styles.infoRow}>
