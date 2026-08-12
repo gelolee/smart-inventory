@@ -17,6 +17,7 @@ const ICON_MAP: Record<string, any> = {
   exit: require("../../assets/icons/logout.png"),
   location: require("../../assets/icons/location.png"),
   warning: require("../../assets/icons/warning.png"),
+  atSign: require("../../assets/icons/at.png"),
 };
 
 interface FlaticonProps {

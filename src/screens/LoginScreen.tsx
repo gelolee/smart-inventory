@@ -134,7 +134,7 @@ export default function LoginScreen({ navigation }: Props) {
           {/* Email Address Input */}
           <View style={[styles.inputWrapper, emailError && styles.inputError]}>
             <View style={styles.iconContainer}>
-              <Feather name="at-sign" size={20} color="#8A8A8F" />
+              <Flaticon name="atSign" size={20} color="#8A8A8F" noFade />
             </View>
             <TextInput
               style={styles.inputField}
