@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Image,
   Alert,
 } from "react-native";
 import Flaticon from "../components/Flaticon";
@@ -39,8 +40,7 @@ export default function DashboardScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
       <View style={styles.header}>
-        <View style={styles.headerButtonSpacer} />
-        <View style={styles.titleContainer}>
+        <View>
           <Text style={styles.headerTitle}>Inventory</Text>
           <Text style={styles.headerTitleSub}>Dashboard</Text>
         </View>
@@ -63,9 +63,9 @@ export default function DashboardScreen({ navigation }: Props) {
           </>
         ) : (
           <>
-            <Text style={styles.greetingText}>{getTimeBasedGreeting()},</Text>
+            <Text style={styles.greetingText}>{getTimeBasedGreeting()}, </Text>
             <Text style={styles.greetingRole}>
-              {isAdmin ? "Admin" : "Guest"}
+              {isAdmin ? "Admin" : "Guest"}!
             </Text>
           </>
         )}
@@ -143,6 +143,13 @@ export default function DashboardScreen({ navigation }: Props) {
           )}
         </View>
       )}
+
+      <View style={styles.footer}>
+        <Image
+          source={require("../../assets/logo/logo-ac.png")}
+          style={styles.logoImage}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -168,14 +175,11 @@ const styles = StyleSheet.create({
     padding: 5,
     width: 34,
   },
-  titleContainer: {
-    alignItems: "center",
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#55555C",
-    textAlign: "center",
+    textAlign: "left",
     lineHeight: 22,
     fontFamily: Platform.OS === "ios" ? "Helvetica-one" : "Helvetica-one",
   },
@@ -183,7 +187,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#55555C",
-    textAlign: "center",
+    textAlign: "left",
     lineHeight: 22,
     fontFamily: Platform.OS === "ios" ? "Helvetica-one" : "Helvetica-one",
   },
@@ -225,9 +229,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   greetingContainer: {
-    paddingHorizontal: 40,
-    marginTop: 12,
-    marginBottom: 4,
+    paddingHorizontal: 20,
+    marginTop: -4,
+    marginBottom: 15,
   },
   greetingText: {
     fontSize: 18,
@@ -250,5 +254,15 @@ const styles = StyleSheet.create({
   skeletonBlock: {
     backgroundColor: "#E5E5EA",
     borderRadius: 4,
+  },
+  footer: {
+    alignItems: "center",
+    paddingVertical: 30,
+    width: "100%",
+  },
+  logoImage: {
+    width: 140,
+    height: 80,
+    resizeMode: "contain",
   },
 });
