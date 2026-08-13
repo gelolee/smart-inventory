@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Dashboard">;
 
 export default function DashboardScreen({ navigation }: Props) {
   const { isAdmin, loading } = useAuth();
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -143,12 +144,16 @@ export default function DashboardScreen({ navigation }: Props) {
           )}
         </View>
       )}
-
       <View style={styles.footer}>
-        <Image
-          source={require("../../assets/logo/logo-ac.png")}
-          style={styles.logoImage}
-        />
+        <View style={styles.logoWrapper}>
+          {!logoLoaded && <View style={styles.logoSkeleton} />}
+          <Image
+            source={require("../../assets/logo/logo-ac.png")}
+            style={styles.logoImage}
+            onLoad={() => setLogoLoaded(true)}
+            fadeDuration={0}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -260,9 +265,24 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     width: "100%",
   },
+  logoWrapper: {
+    width: 140,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   logoImage: {
     width: 140,
     height: 80,
     resizeMode: "contain",
+  },
+  logoSkeleton: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 8,
   },
 });
