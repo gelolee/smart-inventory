@@ -79,69 +79,71 @@ export default function DashboardScreen({ navigation }: Props) {
         </View>
       ) : (
         <View style={styles.menuContainer}>
-          {/* Add Product Button — Admin only */}
-          {isAdmin && (
+          <View style={styles.grid}>
+            {/* Add Product Button — Admin only */}
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.menuButton}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate("AddQr")}
+              >
+                <Flaticon
+                  name="qrCode"
+                  size={40}
+                  color="#FFFFFF"
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.menuButtonText}>Add QR Code</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* QR Code Button */}
             <TouchableOpacity
               style={styles.menuButton}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate("AddQr")}
+              onPress={() => navigation.navigate("QRScannerScreen")}
             >
               <Flaticon
-                name="qrCode"
-                size={22}
+                name="qrScan"
+                size={40}
                 color="#FFFFFF"
                 style={styles.buttonIcon}
               />
-              <Text style={styles.menuButtonText}>Add QR Code</Text>
+              <Text style={styles.menuButtonText}>Scan QR Tag</Text>
             </TouchableOpacity>
-          )}
 
-          {/* QR Code Button */}
-          <TouchableOpacity
-            style={styles.menuButton}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate("QRScannerScreen")}
-          >
-            <Flaticon
-              name="qrScan"
-              size={22}
-              color="#FFFFFF"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.menuButtonText}>Scan QR Tag</Text>
-          </TouchableOpacity>
-
-          {/* Products Button */}
-          <TouchableOpacity
-            style={styles.menuButton}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate("ProductDetails")}
-          >
-            <Flaticon
-              name="box"
-              size={22}
-              color="#FFFFFF"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.menuButtonText}>Products</Text>
-          </TouchableOpacity>
-
-          {/* Catalog Button — Admin only */}
-          {isAdmin && (
+            {/* Products Button */}
             <TouchableOpacity
               style={styles.menuButton}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate("Inventory")}
+              onPress={() => navigation.navigate("ProductDetails")}
             >
               <Flaticon
-                name="boxes"
-                size={22}
+                name="box"
+                size={40}
                 color="#FFFFFF"
                 style={styles.buttonIcon}
               />
-              <Text style={styles.menuButtonText}>Inventory</Text>
+              <Text style={styles.menuButtonText}>Products</Text>
             </TouchableOpacity>
-          )}
+
+            {/* Catalog Button — Admin only */}
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.menuButton}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate("Inventory")}
+              >
+                <Flaticon
+                  name="boxes"
+                  size={40}
+                  color="#FFFFFF"
+                  style={styles.buttonIcon}
+                />
+                <Text style={styles.menuButtonText}>Inventory</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
       <View style={styles.footer}>
@@ -204,19 +206,24 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     flex: 1,
-    paddingHorizontal: 35,
-    justifyContent: "flex-start",
-    alignItems: "stretch",
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    justifyContent: "center",
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
   menuButton: {
-    flexDirection: "row",
+    flexDirection: "column-reverse",
     backgroundColor: "#6C7075",
-    height: 66,
+    height: 160,
+    width: "45%",
     borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -224,7 +231,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   buttonIcon: {
-    marginRight: 12,
+    marginTop: 5,
   },
   menuButtonText: {
     color: "#FFFFFF",
@@ -239,14 +246,14 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   greetingText: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: "Helvetica-three",
     color: "#AEAEB2",
     textTransform: "uppercase",
     letterSpacing: 1.2,
   },
   greetingRole: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Helvetica-two",
     color: "#3A3F47",
     marginTop: 2,
