@@ -7,6 +7,8 @@ import {
   Platform,
   Image,
   Alert,
+  useWindowDimensions,
+  ScrollView,
 } from "react-native";
 import Flaticon from "../components/Flaticon";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,9 +21,29 @@ import { getTimeBasedGreeting } from "../utils/date";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Dashboard">;
 
+const GRID_GAP = 10;
+const GRID_HORIZONTAL_PADDING = 20;
+const MIN_BUTTON_SIZE = 130;
+const MAX_BUTTON_SIZE = 200;
+
 export default function DashboardScreen({ navigation }: Props) {
   const { isAdmin, loading } = useAuth();
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const { width, height } = useWindowDimensions();
+
+  const columns = width >= 700 ? 4 : width >= 500 ? 3 : 2;
+
+  const availableWidth =
+    width - GRID_HORIZONTAL_PADDING * 4 - GRID_GAP * (columns - 3);
+  const rawButtonSize = availableWidth / columns;
+  const buttonSize = Math.min(
+    Math.max(rawButtonSize, MIN_BUTTON_SIZE),
+    MAX_BUTTON_SIZE,
+  );
+
+  const buttonRadius = buttonSize * 0.25;
+  const iconSize = buttonSize * 0.2;
+  const buttonFontSize = Math.max(14, Math.min(18, buttonSize * 0.11));
 
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -37,6 +59,38 @@ export default function DashboardScreen({ navigation }: Props) {
     ]);
   };
 
+  const menuItems = [
+    isAdmin && {
+      key: "add",
+      icon: "qrCode",
+      label: "Add QR Code",
+      onPress: () => navigation.navigate("AddQr"),
+    },
+    {
+      key: "scan",
+      icon: "qrScan",
+      label: "Scan QR Tag",
+      onPress: () => navigation.navigate("QRScannerScreen"),
+    },
+    {
+      key: "products",
+      icon: "box",
+      label: "Products",
+      onPress: () => navigation.navigate("ProductDetails"),
+    },
+    isAdmin && {
+      key: "inventory",
+      icon: "boxes",
+      label: "Inventory",
+      onPress: () => navigation.navigate("Inventory"),
+    },
+  ].filter(Boolean) as {
+    key: string;
+    icon: string;
+    label: string;
+    onPress: () => void;
+  }[];
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header Bar */}
@@ -50,6 +104,7 @@ export default function DashboardScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
       <View style={styles.divider} />
+
       {/* Greeting */}
       <View style={styles.greetingContainer}>
         {loading ? (
@@ -64,8 +119,10 @@ export default function DashboardScreen({ navigation }: Props) {
           </>
         ) : (
           <>
-            <Text style={styles.greetingText}>{getTimeBasedGreeting()}, </Text>
-            <Text style={styles.greetingRole}>
+            <Text style={styles.greetingText} maxFontSizeMultiplier={1.3}>
+              {getTimeBasedGreeting()},{" "}
+            </Text>
+            <Text style={styles.greetingRole} maxFontSizeMultiplier={1.3}>
               {isAdmin ? "Admin" : "Guest"}!
             </Text>
           </>
@@ -78,74 +135,45 @@ export default function DashboardScreen({ navigation }: Props) {
           <ActivityIndicator size="large" color="#6C7075" />
         </View>
       ) : (
-        <View style={styles.menuContainer}>
-          <View style={styles.grid}>
-            {/* Add Product Button — Admin only */}
-            {isAdmin && (
+        <ScrollView
+          contentContainerStyle={[
+            styles.menuContainer,
+            { minHeight: height * 0.4 },
+          ]}
+        >
+          <View style={[styles.grid, { gap: GRID_GAP }]}>
+            {menuItems.map((item) => (
               <TouchableOpacity
-                style={styles.menuButton}
+                key={item.key}
+                style={[
+                  styles.menuButton,
+                  {
+                    width: buttonSize,
+                    height: buttonSize,
+                    borderRadius: buttonRadius,
+                  },
+                ]}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate("AddQr")}
+                onPress={item.onPress}
               >
                 <Flaticon
-                  name="qrCode"
-                  size={40}
+                  name={item.icon}
+                  size={iconSize}
                   color="#FFFFFF"
                   style={styles.buttonIcon}
                 />
-                <Text style={styles.menuButtonText}>Add QR Code</Text>
+                <Text
+                  style={[styles.menuButtonText, { fontSize: buttonFontSize }]}
+                  maxFontSizeMultiplier={1.2}
+                >
+                  {item.label}
+                </Text>
               </TouchableOpacity>
-            )}
-
-            {/* QR Code Button */}
-            <TouchableOpacity
-              style={styles.menuButton}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate("QRScannerScreen")}
-            >
-              <Flaticon
-                name="qrScan"
-                size={40}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.menuButtonText}>Scan QR Tag</Text>
-            </TouchableOpacity>
-
-            {/* Products Button */}
-            <TouchableOpacity
-              style={styles.menuButton}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate("ProductDetails")}
-            >
-              <Flaticon
-                name="box"
-                size={40}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.menuButtonText}>Products</Text>
-            </TouchableOpacity>
-
-            {/* Catalog Button — Admin only */}
-            {isAdmin && (
-              <TouchableOpacity
-                style={styles.menuButton}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate("Inventory")}
-              >
-                <Flaticon
-                  name="boxes"
-                  size={40}
-                  color="#FFFFFF"
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.menuButtonText}>Inventory</Text>
-              </TouchableOpacity>
-            )}
+            ))}
           </View>
-        </View>
+        </ScrollView>
       )}
+
       <View style={styles.footer}>
         <View style={styles.logoWrapper}>
           {!logoLoaded && <View style={styles.logoSkeleton} />}
@@ -172,31 +200,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 0,
-    borderBottomColor: "#E5E5EA",
   },
   headerButton: {
     padding: 5,
-  },
-  headerButtonSpacer: {
-    padding: 5,
-    width: 34,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#55555C",
-    textAlign: "left",
     lineHeight: 22,
-    fontFamily: Platform.OS === "ios" ? "Helvetica-one" : "Helvetica-one",
+    fontFamily: "Helvetica-one",
   },
   headerTitleSub: {
     fontSize: 20,
     fontWeight: "600",
     color: "#55555C",
-    textAlign: "left",
     lineHeight: 22,
-    fontFamily: Platform.OS === "ios" ? "Helvetica-one" : "Helvetica-one",
+    fontFamily: "Helvetica-one",
   },
   divider: {
     height: 1,
@@ -205,8 +225,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   menuContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
+    flexGrow: 1,
+    paddingHorizontal: GRID_HORIZONTAL_PADDING,
     justifyContent: "center",
   },
   grid: {
@@ -214,14 +234,10 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
   },
   menuButton: {
     flexDirection: "column-reverse",
     backgroundColor: "#6C7075",
-    height: 160,
-    width: "45%",
-    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -235,10 +251,10 @@ const styles = StyleSheet.create({
   },
   menuButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
     fontWeight: "600",
     fontFamily: "Helvetica-three",
     letterSpacing: 0.3,
+    textAlign: "center",
   },
   greetingContainer: {
     paddingHorizontal: 20,
